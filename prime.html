@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Prime Team</title>
+<style>
+  :root{
+    --bg:#0f1724;
+    --card:#0b1220;
+    --accent:#7c3aed;
+    --muted:#9aa4b2;
+  }
+  body{
+    margin:0;
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial;
+    background: linear-gradient(180deg, #071024 0%, #09122a 100%);
+    color:#e6eef6;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:28px;
+  }
+  .card{
+    width:980px;
+    max-width:95%;
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:14px;
+    box-shadow:0 8px 30px rgba(2,6,23,0.6);
+    padding:20px;
+    display:grid;
+    grid-template-columns: 360px 1fr;
+    gap:18px;
+    align-items:start;
+  }
+  .sidebar{
+    background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));
+    border:1px solid rgba(255,255,255,0.03);
+    padding:18px;
+    border-radius:10px;
+  }
+  h1{font-size:18px;margin:0 0 8px 0}
+  p.small{color:var(--muted);font-size:13px;margin:0 0 12px 0}
+  .btn{
+    display:inline-block;
+    padding:10px 12px;
+    margin:6px 6px 6px 0;
+    border-radius:8px;
+    background:var(--accent);
+    color:white;
+    text-decoration:none;
+    font-weight:600;
+    cursor:pointer;
+    border:none;
+  }
+  .btn.secondary{background:transparent;border:1px solid rgba(255,255,255,0.06); color:var(--muted);}
+  .controls{margin-top:8px}
+  .preview{
+    min-height:360px;
+    border-radius:10px;
+    background:linear-gradient(180deg,#071028,#051425);
+    padding:14px;
+    position:relative;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,0.02);
+  }
+
+  /* fake update modal */
+  .update {
+    position:absolute;
+    inset:20%;
+    background:linear-gradient(180deg,#07172a, #0b1220);
+    border-radius:12px;
+    padding:22px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    box-shadow:0 20px 60px rgba(2,6,23,0.7);
+    transform-origin:center;
+  }
+  .bar{
+    height:14px;
+    background:rgba(255,255,255,0.06);
+    border-radius:9px;
+    overflow:hidden;
+  }
+  .bar > i{
+    display:block;
+    height:100%;
+    width:0%;
+    background:linear-gradient(90deg,#7c3aed,#22c1c3);
+    transition:width 0.3s linear;
+  }
+  /* flipped */
+  .flipped{ transform:rotate(180deg); }
+  /* shake */
+  @keyframes shake {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    50% { transform: translateX(6px); }
+    75% { transform: translateX(-4px); }
+    100% { transform: translateX(0); }
+  }
+  .shaky { animation: shake 0.6s ease-in-out 6; }
+
+  /* upside down text */
+  .upside * { transform: rotate(180deg); }
+
+  /* confetti canvas fills */
+  #confetti {
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+  }
+
+  /* fake typing box */
+  .terminal {
+    background:rgba(0,0,0,0.45);
+    border-radius:8px;
+    padding:12px;
+    font-family: "Courier New", monospace;
+    color:#bde0ff;
+    max-width:100%;
+  }
+
+  footer.small{font-size:12px;color:var(--muted);margin-top:8px}
+</style>
+</head>
+<body>
+<div class="card" role="application" aria-label="Prank box">
+  <div class="sidebar">
+    <h1>PRIME TEAM</h1>
+    <p class="small">เลือกโหมดที่อยากแกล้งเพื่อน (ปลอดภัย ยกเลิกได้ทุกเมื่อ)</p>
+
+    <div class="controls">
+      <button class="btn" id="btn-fake-update">Progress</button>
+      <button class="btn" id="btn-confetti">เอฟเฟค</button>
+      <button class="btn" id="btn-shake">สั่นหน้าจอ</button>
+      <button class="btn" id="btn-typing">กดเพื่อรับข่าวสาร</button>
+      <button class="btn" id="btn-rick">ลองกดดู</button>
+    </div>
+
+    <div style="margin-top:12px">
+      <button id="btn-reset" class="btn secondary">Reset</button>
+    </div>
+
+    <footer class="small">เว็บสำหรับการอัพเดทข่าวสารของเซิฟ</footer>
+  </div>
+
+  <div class="preview" id="preview" aria-live="polite">
+    <canvas id="confetti"></canvas>
+
+    <div id="contentArea" style="padding:12px;">
+      <h2 style="margin-top:0">PRIME TEAM</h2>
+      <p class="small">พื้นที่แสดงผล</p>
+
+      <div id="terminalBox" class="terminal" style="display:none; margin-top:10px;">
+        <div id="typedText"></div><span id="cursor">█</span>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* === Helper utilities === */
+const preview = document.getElementById('preview');
+const contentArea = document.getElementById('contentArea');
+const confettiCanvas = document.getElementById('confetti');
+const typedTextEl = document.getElementById('typedText');
+const cursor = document.getElementById('cursor');
+let confettiActive = false;
+let confettiTimer = null;
+let confettiCtx, W, H;
+function resizeCanvas(){
+  if(!confettiCanvas) return;
+  W = confettiCanvas.width = confettiCanvas.offsetWidth;
+  H = confettiCanvas.height = confettiCanvas.offsetHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+/* ===== Fake Update ===== */
+document.getElementById('btn-fake-update').addEventListener('click', ()=>{
+  resetAll();
+  const update = document.createElement('div');
+  update.className = 'update';
+  update.innerHTML = `
+    <h3 style="margin:0">Windows Update</h3>
+    <p class="small" style="margin:0">กำลังติดตั้งการอัปเดต 1 ใน 3 — อย่ารีสตาร์ท</p>
+    <div class="bar"><i id="progressBar"></i></div>
+    <div class="small" style="color:var(--muted);font-size:13px">กำลังนำไวรัสเข้าเครื่องของคุณโปรดรอ...</div>
+  `;
+  preview.appendChild(update);
+  const bar = document.getElementById('progressBar');
+  const info = update.querySelector('.small');
+  let v = 0;
+  const iv = setInterval(()=>{
+    v += Math.floor(Math.random()*8)+6; // เพิ่มเร็วไม่เท่ากัน — ทำให้ดูสมจริง
+    if(v>100) v=100;
+    bar.style.width = v + '%';
+    info.textContent = `โปรดรอ... (${v}%)`;
+    if(v >= 100){
+      clearInterval(iv);
+      setTimeout(()=>{
+        info.textContent = 'อัปเดตเสร็จสมบูรณ์ ✓';
+        const done = document.createElement('div');
+        done.style.marginTop='8px';
+        done.innerHTML = '<button class="btn" id="finishOk">ตกลง</button>';
+        update.appendChild(done);
+        document.getElementById('finishOk').addEventListener('click', ()=> update.remove());
+      }, 700);
+    }
+  }, 500);
+});
+
+/* ===== Confetti ===== */
+function startConfetti(){
+  resetAll();
+  confettiActive = true;
+  confettiCanvas.style.display = 'block';
+  confettiCtx = confettiCanvas.getContext('2d');
+  resizeCanvas();
+  const pieces = [];
+  for(let i=0;i<120;i++){
+    pieces.push({
+      x: Math.random()*W,
+      y: Math.random()*H - H,
+      r: (Math.random()*6)+4,
+      d: (Math.random()*3)+1,
+      tilt: Math.random()*20,
+      speedY: 1+Math.random()*4,
+      spin: (Math.random()*0.1)-0.05
+    });
+  }
+  function frame(){
+    if(!confettiActive) return;
+    confettiCtx.clearRect(0,0,W,H);
+    for(const p of pieces){
+      p.y += p.speedY;
+      p.x += Math.sin(p.y/20)*1.2;
+      p.tilt += p.spin;
+      confettiCtx.save();
+      confettiCtx.translate(p.x,p.y);
+      confettiCtx.rotate(p.tilt*0.02);
+      confettiCtx.fillStyle = randomPastel();
+      confettiCtx.fillRect(-p.r/2, -p.r/2, p.r, p.r*0.6);
+      confettiCtx.restore();
+      if(p.y > H + 20){
+        p.y = -20;
+        p.x = Math.random()*W;
+      }
+    }
+    confettiTimer = requestAnimationFrame(frame);
+  }
+  frame();
+}
+function randomPastel(){
+  // gentle colors for party mood
+  const base = [
+    [252, 142, 172],
+    [130, 90, 255],
+    [255, 200, 87],
+    [99, 211, 112],
+    [34, 197, 231]
+  ];
+  const c = base[Math.floor(Math.random()*base.length)];
+  return `rgba(${c[0]},${c[1]},${c[2]},0.95)`;
+}
+document.getElementById('btn-confetti').addEventListener('click', startConfetti);
+
+/* ===== Shake ===== */
+document.getElementById('btn-shake').addEventListener('click', ()=>{
+  resetAll();
+  preview.classList.add('shaky');
+  // remove class after animation cycles (shake defined 6 cycles)
+  setTimeout(()=> preview.classList.remove('shaky'), 4000);
+});
+
+/* ===== Upside-down ===== */
+document.getElementById('btn-upside').addEventListener('click', ()=>{
+  resetAll();
+  // flip only the content area for fun
+  contentArea.classList.add('upside');
+  // also invert color a bit
+  preview.style.filter = 'invert(1) hue-rotate(180deg)';
+});
+
+/* ===== Typing effect ===== */
+document.getElementById('btn-typing').addEventListener('click', ()=>{
+  resetAll();
+  const box = document.getElementById('terminalBox');
+  box.style.display = 'block';
+  typedTextEl.textContent = '';
+  const text = [
+    'กดทำไมบักสันดานเสีย',
+    'ปิดไปเลยเสร่อทำไมมมมมมมม!!!!!!!!'
+  ].join('\\n');
+  let i=0;
+  function typeChunk(){
+    if(i >= text.length){ cursor.style.display='none'; return; }
+    typedTextEl.textContent += text[i++];
+    if(text[i-1] === '\\n') typedTextEl.textContent += '\\n';
+    setTimeout(typeChunk, 55 + Math.random()*80);
+  }
+  typeChunk();
+});
+
+/* ===== Rickroll (open new tab) ===== */
+document.getElementById('btn-rick').addEventListener('click', ()=>{
+  // Open YouTube Rick Astley in new tab (safe, external)
+  // we don't auto-embed or autoplay to avoid intrusive behavior
+  window.open('https://www.youtube.com/watch?v=dQw4w9WgXcQ','_blank','noopener');
+});
+
+/* ===== Reset ===== */
+function resetAll(){
+  // stop confetti
+  confettiActive = false;
+  if(confettiTimer){ cancelAnimationFrame(confettiTimer); confettiTimer = null; }
+  if(confettiCtx) confettiCtx.clearRect(0,0,W,H);
+  confettiCanvas.style.display='none';
+  // remove any update modal
+  const ex = preview.querySelector('.update');
+  if(ex) ex.remove();
+  // remove classes
+  preview.classList.remove('shaky');
+  contentArea.classList.remove('upside');
+  preview.style.filter = '';
+  // reset terminal
+  const box = document.getElementById('terminalBox');
+  box.style.display = 'none';
+  typedTextEl.textContent = '';
+  cursor.style.display = 'inline';
+}
+document.getElementById('btn-reset').addEventListener('click', resetAll);
+
+/* small: hide cursor blink after typing finished */
+let blink = setInterval(()=> {
+  cursor.style.opacity = cursor.style.opacity === '0' ? '1' : '0';
+}, 530);
+
+</script>
+</body>
+</html>
